@@ -92,6 +92,8 @@ public final class ActivityStackSupervisor {
     static final boolean DEBUG_IDLE = DEBUG || false;
 
     public static final int HOME_STACK_ID = 0;
+    public static final int TOP_STACK_ID = 1; //dingej1
+    public static final int BOTTOM_STACK_ID = 2;//dingej1
 
     /** How long we wait until giving up on the last activity telling us it is idle. */
     static final int IDLE_TIMEOUT = 10*1000;
@@ -136,6 +138,10 @@ public final class ActivityStackSupervisor {
 
     /** The stack containing the launcher app */
     private ActivityStack mHomeStack;
+//dingej1
+    public ActivityStack mTopStack;
+    private ActivityStack mBottomStack;
+//dingej1 end
 
     /** The non-home stack currently receiving input or launching the next activity. If home is
      * in front then mHomeStack overrides mFocusedStack.
@@ -149,7 +155,8 @@ public final class ActivityStackSupervisor {
     private static final int STACK_STATE_HOME_TO_BACK = 1;
     private static final int STACK_STATE_HOME_IN_BACK = 2;
     private static final int STACK_STATE_HOME_TO_FRONT = 3;
-    private int mStackState = STACK_STATE_HOME_IN_FRONT;
+//dingej1    //private int mStackState = STACK_STATE_HOME_IN_FRONT;
+    private int mStackState = STACK_STATE_HOME_IN_BACK;
 
     /** List of activities that are waiting for a new activity to become visible before completing
      * whatever operation they are supposed to do. */
@@ -243,7 +250,7 @@ public final class ActivityStackSupervisor {
         switch (mStackState) {
             case STACK_STATE_HOME_IN_FRONT:
             case STACK_STATE_HOME_TO_FRONT:
-                return mHomeStack;
+//dingej1      //return mHomeStack;
             case STACK_STATE_HOME_IN_BACK:
             case STACK_STATE_HOME_TO_BACK:
             default:
@@ -255,7 +262,7 @@ public final class ActivityStackSupervisor {
         switch (mStackState) {
             case STACK_STATE_HOME_IN_FRONT:
             case STACK_STATE_HOME_TO_BACK:
-                return mHomeStack;
+//dingej1      //return mHomeStack;
             case STACK_STATE_HOME_TO_FRONT:
             case STACK_STATE_HOME_IN_BACK:
             default:
@@ -264,7 +271,9 @@ public final class ActivityStackSupervisor {
     }
 
     boolean isFrontStack(ActivityStack stack) {
-        return !(stack.isHomeStack() ^ getFocusedStack().isHomeStack());
+//dingej1
+        //return !(stack.isHomeStack() ^ getFocusedStack().isHomeStack());
+        return (stack == mHomeStack) ? false : true;
     }
 
     void moveHomeStack(boolean toFront) {
@@ -283,14 +292,26 @@ public final class ActivityStackSupervisor {
     }
 
     boolean resumeHomeActivity(ActivityRecord prev) {
-        moveHomeToTop();
+//dingej1 Home defination has changed to multiwindow app which top is ebox process bottom is advertisment process.
+//        moveHomeToTop();
         if (prev != null) {
             prev.task.mOnTopOfHome = false;
         }
+/*
         ActivityRecord r = mHomeStack.topRunningActivityLocked(null);
         if (r != null && r.isHomeActivity()) {
             mService.setFocusedActivityLocked(r);
             return resumeTopActivitiesLocked(mHomeStack, prev, null);
+        }
+*/
+        if (mTopStack != null) {
+        ActivityRecord top = mTopStack.topRunningActivityLocked(null);
+        ActivityRecord bottom = mBottomStack.topRunningActivityLocked(null);
+        if (top != null && top.isTopActivity() && bottom !=null && bottom.isBottomActivity()) {
+            mService.setFocusedActivityLocked(top);
+            //return resumeTopActivitiesLocked(getStack(TOP_STACK_ID), prev, null);
+            return resumeTopActivitiesLocked();
+        }
         }
         return mService.startHomeActivityLocked(mCurrentUser);
     }
@@ -338,7 +359,10 @@ public final class ActivityStackSupervisor {
         if (r != null && r.task == task) {
             stack.mResumedActivity = null;
         }
-        if (stack.removeTask(task) && !stack.isHomeStack()) {
+//dingej1 2015 03.26 begin
+        //if (stack.removeTask(task) && !stack.isHomeStack()) {
+        if (stack.removeTask(task) && stack.shouldRemoveStack()) {
+//dingej1 end.
             if (DEBUG_STACK) Slog.i(TAG, "removeTask: removing stack " + stack);
             mStacks.remove(stack);
             final int stackId = stack.mStackId;
@@ -628,7 +652,7 @@ public final class ActivityStackSupervisor {
     }
 
     void startHomeActivity(Intent intent, ActivityInfo aInfo) {
-        moveHomeToTop();
+//dingej1        //moveHomeToTop();
         startActivityLocked(null, intent, null, aInfo, null, null, 0, 0, 0, null, 0,
                 null, false, null);
     }
@@ -1088,6 +1112,16 @@ public final class ActivityStackSupervisor {
             }
         }
 
+//dingej1 force stop start home activity.
+        if (intent.hasCategory(Intent.CATEGORY_HOME)) {
+            Slog.w(TAG, "Force stop start home from this product" + caller
+                      + " (pid=" + callingPid + ") when starting: "
+                      + intent.toString());
+                err = ActivityManager.START_PERMISSION_DENIED;
+                return err;
+        }
+//dingej1 end
+
         if (err == ActivityManager.START_SUCCESS) {
             final int userId = aInfo != null ? UserHandle.getUserId(aInfo.applicationInfo.uid) : 0;
             Slog.i(TAG, "START u" + userId + " {" + intent.toShortString(true, true, true, false)
@@ -1252,6 +1286,14 @@ public final class ActivityStackSupervisor {
 
     ActivityStack adjustStackFocus(ActivityRecord r) {
         final TaskRecord task = r.task;
+
+//dingej1 begin
+        if (r.isTopActivity()) {
+            return mFocusedStack = getStack(TOP_STACK_ID);
+        } else if (r.isBottomActivity()) {
+            return mFocusedStack = getStack(BOTTOM_STACK_ID);
+        }
+//dingej1 end.
         if (r.isApplicationActivity() || (task != null && task.isApplicationTask())) {
             if (task != null) {
                 if (mFocusedStack != task.stack) {
@@ -1280,13 +1322,15 @@ public final class ActivityStackSupervisor {
                     return mFocusedStack;
                 }
             }
-
+/* //dingej recomment because it has been created when init.
             // Time to create the first app stack for this user.
             int stackId = mService.createStack(-1, HOME_STACK_ID,
                 StackBox.TASK_STACK_GOES_OVER, 1.0f);
             if (DEBUG_FOCUS || DEBUG_STACK) Slog.d(TAG, "adjustStackFocus: New stack r=" + r +
                     " stackId=" + stackId);
             mFocusedStack = getStack(stackId);
+*/
+//dingej1 end
             return mFocusedStack;
         }
         return mHomeStack;
@@ -1296,6 +1340,21 @@ public final class ActivityStackSupervisor {
         if (r == null) {
             return;
         }
+
+//dingej1 begin
+        if (r.isTopActivity() ||r.isBottomActivity()) {
+            mFocusedStack = r.task.stack;
+            if (mStackState != STACK_STATE_HOME_IN_BACK) {
+                if (DEBUG_STACK) Slog.d(TAG, "setFocusedStack: mStackState old=" +
+                        stackStateToString(mStackState) + " new=" +
+                        stackStateToString(STACK_STATE_HOME_TO_BACK) +
+                        " Callers=" + Debug.getCallers(3));
+                mStackState = STACK_STATE_HOME_TO_BACK;
+                return;
+            }
+        }
+//dingej1 end.
+
         if (!r.isApplicationActivity() || (r.task != null && !r.task.isApplicationTask())) {
             if (mStackState != STACK_STATE_HOME_IN_FRONT) {
                 if (DEBUG_STACK || DEBUG_FOCUS) Slog.d(TAG, "setFocusedStack: mStackState old=" +
@@ -1998,6 +2057,26 @@ public final class ActivityStackSupervisor {
             targetStack = getFocusedStack();
         }
         boolean result = false;
+//dingej1 begin
+        if (mTopStack == null) {
+            int stackId = mService.createStack(-1, HOME_STACK_ID, //create TOP stack
+                StackBox.TASK_STACK_GOES_OVER, 1.0f);
+            mService.createStack(-1, stackId, //create Bottom Stack
+                StackBox.TASK_STACK_GOES_BELOW, 0.6f);
+            mTopStack = getStack(TOP_STACK_ID);
+            mBottomStack = getStack(BOTTOM_STACK_ID);
+        }
+//dingej1 end.
+
+/*
+        if(mTopStack != null && getFocusedStack() == mHomeStack) {
+             mTopStack.resumeTopActivityLocked(target, targetOptions);
+             mBottomStack.resumeTopActivityLocked(target, targetOptions);
+             return true;
+        }
+*/
+//dingej1 end.
+
         for (int stackNdx = mStacks.size() - 1; stackNdx >= 0; --stackNdx) {
             final ActivityStack stack = mStacks.get(stackNdx);
             if (isFrontStack(stack)) {
@@ -2076,10 +2155,11 @@ public final class ActivityStackSupervisor {
         if (DEBUG_TASKS) Slog.d(TAG, "Looking for task of " + r);
         for (int stackNdx = mStacks.size() - 1; stackNdx >= 0; --stackNdx) {
             final ActivityStack stack = mStacks.get(stackNdx);
-            if (!r.isApplicationActivity() && !stack.isHomeStack()) {
-                if (DEBUG_TASKS) Slog.d(TAG, "Skipping stack: " + stack);
-                continue;
-            }
+//dingej1
+            //if (!r.isApplicationActivity() && !stack.isHomeStack()) {
+            //    if (DEBUG_TASKS) Slog.d(TAG, "Skipping stack: " + stack);
+            //    continue;
+            //}
             final ActivityRecord ar = stack.findTaskLocked(r);
             if (ar != null) {
                 return ar;

@@ -59,6 +59,8 @@ final class ActivityRecord {
     static final String TAG = ActivityManagerService.TAG;
     static final boolean DEBUG_SAVED_STATE = ActivityStackSupervisor.DEBUG_SAVED_STATE;
     final public static String RECENTS_PACKAGE_NAME = "com.android.systemui.recent";
+    final public static String TOP_PACKAGE_NAME = "com.ebox"; //dingej1
+    final public static String BOTTOM_PACKAGE_NAME = "com.android.settings";//dingej1
 
     final ActivityManagerService service; // owner
     final IApplicationToken.Stub appToken; // window manager token
@@ -81,6 +83,8 @@ final class ActivityRecord {
     static final int APPLICATION_ACTIVITY_TYPE = 0;
     static final int HOME_ACTIVITY_TYPE = 1;
     static final int RECENTS_ACTIVITY_TYPE = 2;
+    static final int TOP_ACTIVITY_TYPE = 3;//dingej1
+    static final int BOTTOM_ACTIVITY_TYPE = 4;//dingej1
     int mActivityType;
 
     final String baseDir;   // where activity source (resources etc) located
@@ -455,6 +459,12 @@ final class ActivityRecord {
                     isNotResolverActivity()) {
                 // This sure looks like a home activity!
                 mActivityType = HOME_ACTIVITY_TYPE;
+//dingej1 begin
+            } else if (realActivity.getClassName().contains(TOP_PACKAGE_NAME)) {
+                mActivityType = TOP_ACTIVITY_TYPE;
+            } else if (realActivity.getClassName().contains(BOTTOM_PACKAGE_NAME)) {
+                mActivityType = BOTTOM_ACTIVITY_TYPE;
+//dingej1 end.
             } else if (realActivity.getClassName().contains(RECENTS_PACKAGE_NAME)) {
                 mActivityType = RECENTS_ACTIVITY_TYPE;
             } else {
@@ -554,6 +564,15 @@ final class ActivityRecord {
     boolean isRecentsActivity() {
         return mActivityType == RECENTS_ACTIVITY_TYPE;
     }
+
+//dingej1 begin.
+    boolean isTopActivity() {
+        return mActivityType == TOP_ACTIVITY_TYPE;
+    }
+    boolean isBottomActivity() {
+        return mActivityType == BOTTOM_ACTIVITY_TYPE;
+    }
+//dingej1 end.
 
     boolean isApplicationActivity() {
         return mActivityType == APPLICATION_ACTIVITY_TYPE;

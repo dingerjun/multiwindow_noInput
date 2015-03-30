@@ -43,6 +43,7 @@ import com.android.server.display.DisplayManagerService;
 import com.android.server.input.InputManagerService;
 import com.android.server.power.PowerManagerService;
 import com.android.server.power.ShutdownThread;
+import com.android.server.am.ActivityManagerService; //dingej1 add
 
 import android.Manifest;
 import android.app.ActivityManager.StackBoxInfo;
@@ -3765,6 +3766,8 @@ public class WindowManagerService extends IWindowManager.Stub
         } else {
             stack = null;
         }
+//dingej1 begin Focus stack frame has bugs , ebox project do not need it.
+/*
         if (SHOW_LIGHT_TRANSACTIONS) Slog.i(TAG, ">>> OPEN TRANSACTION setFocusedStackFrame");
         SurfaceControl.openTransaction();
         try {
@@ -3781,6 +3784,8 @@ public class WindowManagerService extends IWindowManager.Stub
             SurfaceControl.closeTransaction();
             if (SHOW_LIGHT_TRANSACTIONS) Slog.i(TAG, ">>> CLOSE TRANSACTION setFocusedStackFrame");
         }
+*/
+//dingej1 end
     }
 
     @Override
@@ -7507,6 +7512,7 @@ public class WindowManagerService extends IWindowManager.Stub
                     if (stackId >= 0) {
                         try {
                             mActivityManager.setFocusedStack(stackId);
+                            setFocusedStackFrame(); //dingej1 focus change in multiwindow
                         } catch (RemoteException e) {
                         }
                     }
@@ -9795,6 +9801,26 @@ public class WindowManagerService extends IWindowManager.Stub
         return null;
     }
 
+//dingej1 add for focus change in MultiWidnow
+    private boolean isTokenInStackId(AppWindowToken wtoken, int stackId){
+        final TaskStack stack = mStackIdToStack.get(stackId);
+        if (stack != null){
+            ArrayList<Task> tasks = stack.getTasks();
+            for (int taskNdx = tasks.size() - 1; taskNdx >= 0; --taskNdx) {
+                AppTokenList tokens = tasks.get(taskNdx).mAppTokens;
+                int tokenNdx = tokens.size() - 1;
+                for ( ; tokenNdx >= 0; --tokenNdx) {
+                    final AppWindowToken token = tokens.get(tokenNdx);
+                    if (wtoken == token) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+//dingej end
+
     private WindowState findFocusedWindowLocked(DisplayContent displayContent) {
         final WindowList windows = displayContent.getWindowList();
         for (int i = windows.size() - 1; i >= 0; i--) {
@@ -9823,6 +9849,18 @@ public class WindowManagerService extends IWindowManager.Stub
             // win.mAppToken (return win) or mFocusedApp (return null).
             if (wtoken != null && win.mAttrs.type != TYPE_APPLICATION_STARTING &&
                     mFocusedApp != null) {
+//dingej1 begin add find focus window when multiwindow
+                int stackId = ((ActivityManagerService)mActivityManager).getFocusedStackId();
+                if (stackId>=0 && stackId != HOME_STACK_ID &&
+                    mStackIdToStack.get(stackId)!=null &&
+                    mStackIdToStack.get(stackId).hasSibling()){
+                if (isTokenInStackId(wtoken,stackId)==true){
+                    return win;
+                    }else{
+                       continue;
+                    }
+                }else{
+//dingej1 end
                 ArrayList<Task> tasks = displayContent.getTasks();
                 for (int taskNdx = tasks.size() - 1; taskNdx >= 0; --taskNdx) {
                     AppTokenList tokens = tasks.get(taskNdx).mAppTokens;
@@ -9844,6 +9882,7 @@ public class WindowManagerService extends IWindowManager.Stub
                         break;
                     }
                 }
+                } //dingej1 add find focus window when multiwindow
             }
 
             if (DEBUG_FOCUS_LIGHT) Slog.v(TAG, "findFocusedWindow: Found new focus @ " + i +

@@ -127,6 +127,10 @@ public class DimLayer {
 
     void setBounds(Rect bounds) {
         mBounds.set(bounds);
+//dingej1 begin DimLayer redraw when the bounds is changed and showing.
+        if (!mLastBounds.equals(mBounds) && mShowing)
+            show(mLayer, mTargetAlpha, 0);
+//dingej1 end.
     }
 
     /**
@@ -170,7 +174,10 @@ public class DimLayer {
             dw = mBounds.width();
             dh = mBounds.height();
             xPos = mBounds.left;
-            yPos = mBounds.right;
+//dingej1 begin
+            //yPos = mBounds.right;
+            yPos = mBounds.top;
+//dingej1 end
         } else {
             // Set surface size to screen size.
             final DisplayInfo info = mDisplayContent.getDisplayInfo();

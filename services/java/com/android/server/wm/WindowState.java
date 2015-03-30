@@ -465,15 +465,17 @@ final class WindowState implements WindowManagerPolicy.WindowState {
         TaskStack stack = mAppToken != null ? getStack() : null;
         if (stack != null && stack.hasSibling()) {
             mContainingFrame.set(getStackBounds(stack));
-            if (mUnderStatusBar) {
-                mContainingFrame.top = pf.top;
-            }
+//dingej1            if (mUnderStatusBar) {
+//                mContainingFrame.top = pf.top;
+//            }
         } else {
             mContainingFrame.set(pf);
         }
 
-        mDisplayFrame.set(df);
-
+//        mDisplayFrame.set(df);
+//dingej1 2013,12,27 force DisplayFrame as StackBox because of app begin.
+        mDisplayFrame.set(mContainingFrame);
+//dingej1 end.
         final int pw = mContainingFrame.width();
         final int ph = mContainingFrame.height();
 
@@ -542,6 +544,17 @@ final class WindowState implements WindowManagerPolicy.WindowState {
             y = mAttrs.y;
         }
 
+//dingej1 format layout paramenter under stack box. begin.
+//dingej1 begin. let full display window bypass.
+        if(stack != null && stack.hasSibling()){
+            x = x<0? 0: x;
+            y = y<0? 0: y;
+            w = w>pw ? pw : w;
+            h = h>ph ? ph : h;
+        }
+//dingej1 end.
+
+
         Gravity.apply(mAttrs.gravity, w, h, mContainingFrame,
                 (int) (x + mAttrs.horizontalMargin * pw),
                 (int) (y + mAttrs.verticalMargin * ph), mFrame);
@@ -550,6 +563,19 @@ final class WindowState implements WindowManagerPolicy.WindowState {
 
         // Now make sure the window fits in the overall display.
         Gravity.applyDisplay(mAttrs.gravity, df, mFrame);
+//dingej1 2013,12,27 format mFrame under stackbox and calculate scale again. begin.
+//dingej1 2014,1,9 begin. let full display window bypass.
+        if(stack != null && stack.hasSibling()){
+            mFrame.set(Math.max(mContainingFrame.left, mFrame.left),
+                Math.max(mContainingFrame.top, mFrame.top),
+                Math.min(mContainingFrame.right, mFrame.right),
+                Math.min(mContainingFrame.bottom, mFrame.bottom));
+            if ((mAttrs.flags & WindowManager.LayoutParams.FLAG_SCALED) != 0) {
+                mHScale = (mFrame.right - mFrame.left)/(float)mRequestedWidth;
+                mVScale = (mFrame.bottom - mFrame.top)/(float)mRequestedHeight;
+            }
+        }
+//dingej1 end.
 
         // Make sure the content and visible frames are inside of the
         // final window frame.
@@ -706,7 +732,10 @@ final class WindowState implements WindowManagerPolicy.WindowState {
     }
 
     TaskStack getStack() {
-        AppWindowToken wtoken = mAppToken == null ? mService.mFocusedApp : mAppToken;
+//dingej1 begin. System Window should use HomeStack not Focus Stack.
+        //AppWindowToken wtoken = mAppToken == null ? mService.mFocusedApp : mAppToken;
+        AppWindowToken wtoken = mAppToken;
+//dingej1 end
         if (wtoken != null) {
             Task task = mService.mTaskIdToTask.get(wtoken.groupId);
             if (task != null) {

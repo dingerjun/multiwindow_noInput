@@ -352,6 +352,16 @@ final class TaskRecord extends ThumbnailHolder {
     boolean isApplicationTask() {
         return mTaskType == ActivityRecord.APPLICATION_ACTIVITY_TYPE;
     }
+//dingej1 begin
+    boolean isTopTask() {
+        return mTaskType == ActivityRecord.TOP_ACTIVITY_TYPE;
+    }
+    boolean isBottomTask() {
+        return mTaskType == ActivityRecord.BOTTOM_ACTIVITY_TYPE;
+    }
+//dingej1 end.
+
+
 
     public TaskAccessInfo getTaskAccessInfoLocked(boolean inclThumbs) {
         final TaskAccessInfo thumbs = new TaskAccessInfo();

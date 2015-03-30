@@ -35,6 +35,8 @@ import static com.android.server.am.ActivityStackSupervisor.DEBUG_APP;
 import static com.android.server.am.ActivityStackSupervisor.DEBUG_SAVED_STATE;
 import static com.android.server.am.ActivityStackSupervisor.DEBUG_STATES;
 import static com.android.server.am.ActivityStackSupervisor.HOME_STACK_ID;
+import static com.android.server.am.ActivityStackSupervisor.TOP_STACK_ID; //dingej1 2015.3.26
+import static com.android.server.am.ActivityStackSupervisor.BOTTOM_STACK_ID; //dingej1
 
 import android.os.Trace;
 import com.android.internal.os.BatteryStatsImpl;
@@ -464,6 +466,21 @@ final class ActivityStack {
     final boolean isHomeStack() {
         return mStackId == HOME_STACK_ID;
     }
+
+//dingej1 2015.03.26 begin.
+    final boolean isTopStack() {
+        return mStackId == TOP_STACK_ID;
+    }
+
+    final boolean isBottomStack() {
+        return mStackId == BOTTOM_STACK_ID;
+    }
+
+    final boolean shouldRemoveStack() {
+        return (mStackId <HOME_STACK_ID || mStackId >BOTTOM_STACK_ID) ? true : false;
+
+    }
+//dingej1 end.
 
     /**
      * Returns the top activity in any existing task matching the given
@@ -1231,14 +1248,16 @@ final class ActivityStack {
         // that the state is reset however we wind up proceeding.
         final boolean userLeaving = mStackSupervisor.mUserLeaving;
         mStackSupervisor.mUserLeaving = false;
-
         if (next == null) {
             // There are no more activities!  Let's just start up the
             // Launcher...
             ActivityOptions.abort(options);
             if (DEBUG_STATES) Slog.d(TAG, "resumeTopActivityLocked: No more activities go home");
             if (DEBUG_STACK) mStackSupervisor.validateTopActivitiesLocked();
+//dingej1 begin
+            //return (mStackId != HOME_STACK_ID) ? mStackSupervisor.resumeHomeActivity(prev) : false;
             return mStackSupervisor.resumeHomeActivity(prev);
+//dingej1 end
         }
 
         next.delayedResume = false;

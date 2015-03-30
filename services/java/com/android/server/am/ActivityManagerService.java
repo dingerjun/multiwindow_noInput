@@ -2705,6 +2705,19 @@ public final class ActivityManagerService extends ActivityManagerNative
         return intent;
     }
 
+//dingej1 begin
+    Intent getHomeIntent(int stackId) {
+        Intent intent=  new Intent(Intent.ACTION_MAIN, null);
+        intent.addCategory(Intent.CATEGORY_LAUNCHER);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        if (stackId == mStackSupervisor.TOP_STACK_ID)
+            intent.setComponent(new ComponentName("com.ebox","com.ebox.ui.TopActivity"));
+        else
+            intent.setComponent(new ComponentName("com.android.settings","com.android.settings.Settings"));
+        return intent;
+    }
+//dingej1 end.
+
     boolean startHomeActivityLocked(int userId) {
         if (mHeadless) {
             // Added because none of the other calls to ensureBootCompleted seem to fire
@@ -2720,7 +2733,11 @@ public final class ActivityManagerService extends ActivityManagerNative
             // error message and don't try to start anything.
             return false;
         }
-        Intent intent = getHomeIntent();
+//dingej1 begin
+        ActivityRecord top = (mStackSupervisor.mTopStack != null) ? mStackSupervisor.mTopStack.topRunningActivityLocked(null) : null;
+        Intent intent = getHomeIntent((top == null) ? mStackSupervisor.TOP_STACK_ID : mStackSupervisor.BOTTOM_STACK_ID);
+        //Intent intent = getHomeIntent();
+//dingej1 end
         ActivityInfo aInfo =
             resolveActivityInfo(intent, STOCK_PM_FLAGS, userId);
         if (aInfo != null) {
@@ -13737,6 +13754,14 @@ public final class ActivityManagerService extends ActivityManagerNative
         }
         return config;
     }
+
+//dingej1 add public
+    public int getFocusedStackId() {
+        return mStackSupervisor.getFocusedStack().getStackId();
+    }
+//dignej1 end.
+
+
 
     ActivityStack getFocusedStack() {
         return mStackSupervisor.getFocusedStack();
