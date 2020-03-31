@@ -778,7 +778,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             performHapticFeedbackLw(null, HapticFeedbackConstants.LONG_PRESS, false);
 
             if (mLongPressOnHomeBehavior == LONG_PRESS_HOME_RECENT_SYSTEM_UI) {
-                toggleRecentApps();
+                //toggleRecentApps();
+                launchAssistAction();
             } else if (mLongPressOnHomeBehavior == LONG_PRESS_HOME_ASSIST) {
                 launchAssistAction();
             }
@@ -801,6 +802,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             }
         }
     };
+
+//dingej1 
+    MultiWindowPolicyManager mMWPManager;
 
     /**
      * Create (if necessary) and show or dismiss the recent apps dialog according
@@ -985,6 +989,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         } else {
             screenTurnedOff(WindowManagerPolicy.OFF_BECAUSE_OF_USER);
         }
+
+//dingej1
+        mMWPManager = new MultiWindowPolicyManager(this, mContext);
     }
 
     /**
@@ -2388,19 +2395,26 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
     }
 
+    private boolean state = false;
     private void launchAssistAction() {
         sendCloseSystemWindows(SYSTEM_DIALOG_REASON_ASSIST);
-        Intent intent = ((SearchManager) mContext.getSystemService(Context.SEARCH_SERVICE))
-                .getAssistIntent(mContext, true, UserHandle.USER_CURRENT);
-        if (intent != null) {
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
-                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
-                    | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-            try {
-                mContext.startActivityAsUser(intent, UserHandle.CURRENT);
-            } catch (ActivityNotFoundException e) {
-                Slog.w(TAG, "No activity to handle assist action.", e);
-            }
+//        Intent intent = ((SearchManager) mContext.getSystemService(Context.SEARCH_SERVICE))
+//                .getAssistIntent(mContext, true, UserHandle.USER_CURRENT);
+//        if (intent != null) {
+//            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+//                    | Intent.FLAG_ACTIVITY_SINGLE_TOP
+//                    | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+//            try {
+//                mContext.startActivityAsUser(intent, UserHandle.CURRENT);
+//            } catch (ActivityNotFoundException e) {
+//                Slog.w(TAG, "No activity to handle assist action.", e);
+//            }
+//        }
+        state = !state;
+        if (state) {
+        if(mMWPManager != null) mMWPManager.setState(MultiWindowPolicyManager.MODE_ADVERTISEMENT);
+        }else {
+        if(mMWPManager != null) mMWPManager.setState(MultiWindowPolicyManager.MODE_BUSINESS);
         }
     }
 
@@ -4252,6 +4266,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             updateOrientationListenerLp();
             updateLockScreenTimeout();
         }
+//        if(mMWPManager != null) mMWPManager.setState(MultiWindowPolicyManager.MODE_ADVERTISEMENT);
     }
 
     @Override
@@ -4270,6 +4285,7 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         }
 
         waitForKeyguard(screenOnListener);
+//        if(mMWPManager != null) mMWPManager.setState(MultiWindowPolicyManager.MODE_BUSINESS);
     }
 
     private void waitForKeyguard(final ScreenOnListener screenOnListener) {
@@ -4654,6 +4670,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             mKeyguardDelegate = new KeyguardServiceDelegate(mContext, null);
             mKeyguardDelegate.onSystemReady();
         }
+        Log.e("dingerjun","phonewindowManager systemReady");
+//        mMWPManager.setState(MultiWindowPolicyManager.MODE_BUSINESS);
         synchronized (mLock) {
             updateOrientationListenerLp();
             mSystemReady = true;
